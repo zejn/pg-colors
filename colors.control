@@ -1,0 +1,5 @@
+# semver extension
+comment = 'Colors for Postgres'
+default_version = '0.0.1'
+module_pathname = '$libdir/colors'
+relocatable = true

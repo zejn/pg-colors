@@ -1,0 +1,51 @@
+{
+   "name": "colors",
+   "abstract": "Colors for PostgreSQL",
+   "description": "Provides Delta E CIE 1976 and Delta E CIE 2000 functions.",
+   "version": "0.0.1",
+   "maintainer": [
+      "Gasper Zejn <zejn@owca.info>"
+   ],
+   "license": "postgresql",
+   "provides": {
+      "colors": {
+         "abstract": "Colors for PostgreSQL",
+         "file": "sql/colors.sql",
+         "docfile": "doc/colors.mmd",
+         "version": "0.0.1"
+      }
+   },
+   "prereqs": {
+      "runtime": {
+         "requires": {
+            "PostgreSQL": "8.4.0"
+         }
+      },
+      "test": {
+         "requires": {
+            "plpgsql": 0
+        }
+      }
+   },
+   "resources": {
+      "bugtracker": {
+         "web": "https://github.com/zejn/pg-colors/issues/"
+      },
+      "repository": {
+        "url":  "git://github.com/zejn/pg-colors.git",
+        "web":  "https://github.com/zejn/pg-colors/",
+        "type": "git"
+      }
+   },
+   "generated_by": "Gasper Zejn",
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "http://pgxn.org/meta/spec.txt"
+   },
+   "tags": [
+      "colors",
+      "delta e",
+      "cie",
+      "similarity"
+   ]
+}

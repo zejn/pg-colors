@@ -1,0 +1,146 @@
+colors 0.0.1
+============
+
+Synopsis
+--------
+
+    CREATE EXTENSION colors;
+
+    SELECT delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163);
+     delta_e_cie_2000 
+    ------------------
+     49.0713518946563
+
+    SELECT delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163, 1, 1, 1);
+     delta_e_cie_2000 
+    ------------------
+     49.0713518946563
+
+
+Description
+-----------
+
+This library contains four PostgreSQL C functions for calculating color
+difference in L\*a\*b\* color space, which is designed for evaluating
+perceptual similarity.
+
+Usage
+-----
+
+    CREATE EXTENSION colors;
+
+    SELECT delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163, 1, 1, 1);
+     delta_e_cie_2000 
+    ------------------
+     49.0713518946563
+
+    SELECT delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163);
+     delta_e_cie_2000 
+    ------------------
+     49.0713518946563
+
+    SELECT delta_e_cie_1976(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163);
+     delta_e_cie_1976 
+    ------------------
+     90.4777456156485
+
+    SELECT delta_e_cmc(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163, 2, 1);
+       delta_e_cmc    
+    ------------------
+     46.7826986684777
+
+    SELECT delta_e_cmc(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163);
+       delta_e_cmc    
+    ------------------
+     46.7826986684777
+
+    SELECT delta_e_cie_1994(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163, 1, 1, 1, 0.045, 0.015);
+     delta_e_cie_1994 
+    ------------------
+     52.3670343098197
+
+    SELECT delta_e_cie_1994(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163);
+     delta_e_cie_1994 
+    ------------------
+     52.3670343098197
+
+
+
+Interface
+---------
+
+### Functions ###
+
+#### delta_e_cie_2000 ####
+
+This is the current standard function for calculating differences
+between colors according to Delta E CIE 2000.
+
+In its full form it takes 9 double precision parameters. First three are L, a,
+b components from first color, next three are L, a, b components from second
+compared color, and the next three parameters are Kl, Kc and Kh, which are
+usually all 1.0.
+
+A function accepting only color components is also provided for convenience.
+
+#### delta_e_cie_1994 ####
+
+This function is the previous standard way of comparing colors according to
+Delta E CIE 1994.
+
+In its full form it accepts both color components and parameters kL, kC, kH,
+which all default to 1.0 and k1 (defaults to 0.045) and k2 (defaults to 0.015).
+
+A function accepting only color components is also provided for convenience.
+
+#### delta_e_cmc ####
+
+This function is the Delta E CMC difference between two colors.
+
+In its full form it accepts both color components and parameters pl and pc.
+For acceptability (default) pl=2.0 and pc=1.0. For perceptability, set both
+to 1.0.
+
+A function accepting only color components is also provided for convenience.
+
+#### delta_e_cie_1976 ####
+
+This is the original Delta E CIE 1976 color difference.
+
+
+Support
+-------
+
+This library is stored on [GitHub
+repository](http://github.com/zejn/pg-colors), where you can fork it and
+contribute! File bug reports via 
+[GitHub Issues](http://github.com/zejn/pg-colors/issues/).
+
+Author
+------
+
+Gasper Zejn
+
+Copyright and License
+---------------------
+
+Copyright (c) 2010-2014 Gasper Zejn.
+
+This module is free software; you can redistribute it and/or modify it under
+the [PostgreSQL License](http://www.opensource.org/licenses/postgresql).
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose, without fee, and without a written agreement is
+hereby granted, provided that the above copyright notice and this paragraph
+and the following two paragraphs appear in all copies.
+
+In no event shall Gasper Zejn be liable to any party for direct, indirect,
+special, incidental, or consequential damages, including lost profits, arising
+out of the use of this software and its documentation, even if Gasper Zejn
+ has been advised of the possibility of such damage.
+
+Gasper Zejn specifically disclaims any warranties, including, but not limited 
+to, the implied warranties of merchantability and fitness for a particular 
+purpose. The software provided hereunder is on an "as is" basis, and Gasper 
+Zejn has no obligations to provide maintenance, support, updates, 
+enhancements, or modifications.
