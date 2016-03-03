@@ -22,16 +22,6 @@ RETURNS float8
 AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
-CREATE FUNCTION color_distance_cie1994(cube, cube)
-RETURNS float8
-AS 'MODULE_PATHNAME'
-LANGUAGE C IMMUTABLE STRICT;
-
-CREATE OPERATOR <@> (
-    LEFTARG = cube, RIGHTARG = cube, PROCEDURE = color_distance_cie1994,
-    COMMUTATOR = '<@>'
-);
-
 CREATE FUNCTION color_distance_cie2000(cube, cube)
 RETURNS float8
 AS 'MODULE_PATHNAME'
@@ -51,8 +41,7 @@ CREATE OPERATOR CLASS gist_color_ops
     OPERATOR    13  @ ,
     OPERATOR    14  ~ ,
     OPERATOR    15  <-> (cube, cube) FOR ORDER BY float_ops,
-    OPERATOR    16  <@> (cube, cube) FOR ORDER BY float_ops,
-    OPERATOR    17  <~> (cube, cube) FOR ORDER BY float_ops,
+    OPERATOR    16  <~> (cube, cube) FOR ORDER BY float_ops,
 
     FUNCTION    1   g_cube_consistent (internal, cube, smallint, oid, internal),
     FUNCTION    2   g_cube_union (internal, internal),

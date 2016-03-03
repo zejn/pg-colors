@@ -2,7 +2,10 @@
 BEGIN;
 
 \i test/pgtap-core.sql
-\i sql/colors.sql
+
+CREATE EXTENSION IF NOT EXISTS cube;
+
+\i sql/colors--1.0.sql
 
 -- Before 8.4, there was no unnest(), so create one.
 CREATE FUNCTION create_unnest(
@@ -21,7 +24,7 @@ $$;
 
 SELECT * FROM create_unnest();
 
-SELECT plan(14);
+SELECT plan(23);
 -- SELECT * FROM no_plan();
 
 SELECT has_function('delta_e_cie_1976', ARRAY['double precision', 'double precision', 'double precision', 'double precision', 'double precision', 'double precision']);
@@ -32,6 +35,14 @@ SELECT has_function('delta_e_cmc', ARRAY['double precision', 'double precision',
 SELECT has_function('delta_e_cie_2000', ARRAY['double precision', 'double precision', 'double precision', 'double precision', 'double precision', 'double precision']);
 SELECT has_function('delta_e_cie_2000', ARRAY['double precision', 'double precision', 'double precision', 'double precision', 'double precision', 'double precision', 'double precision', 'double precision', 'double precision']);
 
+SELECT has_function('g_color_distance', ARRAY['internal', 'cube', 'smallint', 'oid', 'internal']);
+SELECT has_function('color_distance_cie1976', ARRAY['cube', 'cube']);
+SELECT has_function('color_distance_cie2000', ARRAY['cube', 'cube']);
+
+SELECT has_opclass('gist_color_ops');
+
+SELECT has_domain('color');
+
 SELECT is(
     delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163, 1, 1, 1)::numeric,
     49.0713518946563,
@@ -41,6 +52,16 @@ SELECT is(
     delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163)::numeric,
     49.0713518946563,
     'calculate delta_e_cie_2000');
+
+SELECT is(
+    color_distance_cie2000('(75.06, 48.17, -22.39)'::color, '(55.60, -37.44, -0.5163)'::color)::numeric,
+    49.0713518946563,
+    'calculate color_distance_cie2000');
+
+SELECT is(
+    delta_e_cie_2000(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163)::numeric,
+    delta_e_cie_2000(55.60, -37.44, -0.5163, 75.06, 48.17, -22.39)::numeric,
+    'comutative delta_e_cie_2000');
 
 SELECT is(
     delta_e_cmc(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163, 2, 1)::numeric,
@@ -67,6 +88,24 @@ SELECT is(
     90.4777456156485,
     'calculate delta_e_cie_1976');
 
+SELECT is(
+    delta_e_cie_1976(75.06, 48.17, -22.39, 55.60, -37.44, -0.5163)::numeric,
+    delta_e_cie_1976(55.60, -37.44, -0.5163, 75.06, 48.17, -22.39)::numeric,
+    'comutative delta_e_cie_1976');
+
+SELECT is(
+    color_distance_cie1976('(75.06, 48.17, -22.39)'::color, '(55.60, -37.44, -0.5163)'::color)::numeric,
+    90.4777456156485,
+    'calculate color_distance_cie1976');
+
+/* 
+currently this pgtap does not have has_index.
+CREATE TABLE color_tbl AS SELECT random()*100 as L, random()*256-128 as a, random()*256-128 as b from generate_series(1, 10000);
+ALTER TABLE color_tbl ADD COLUMN lab color;
+UPDATE color_tbl SET lab = (L || ',' || a || ',' || b)::color;
+
+CREATE INDEX color_tbl_idx ON color_tbl USING gist (lab gist_color_ops);
+*/
 
 SELECT * FROM finish();
 ROLLBACK;

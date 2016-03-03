@@ -69,32 +69,21 @@ CREATE OR REPLACE FUNCTION delta_e_cie_2000(double precision, double precision, 
 COMMENT ON FUNCTION delta_e_cie_2000(double precision, double precision, double precision, double precision, double precision, double precision)
 IS 'delta_e_cie_2000(L_1, a_1, b_1, L_2, a_2, b_2, Kl=1, Kc=1, Kh=1)';
 
-
 create domain color cube check (cube_dim(VALUE) = 3 and cube_is_point(VALUE));
 
 CREATE FUNCTION g_color_distance (internal, cube, smallint, oid, internal)
 RETURNS float8
-AS 'MODULE_PATHNAME'
+AS 'colors', 'g_color_distance'
 LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION color_distance_cie1976(cube, cube)
 RETURNS float8
-AS 'MODULE_PATHNAME'
+AS 'colors', 'color_distance_cie1976'
 LANGUAGE C IMMUTABLE STRICT;
-
-CREATE FUNCTION color_distance_cie1994(cube, cube)
-RETURNS float8
-AS 'MODULE_PATHNAME'
-LANGUAGE C IMMUTABLE STRICT;
-
-CREATE OPERATOR <@> (
-    LEFTARG = cube, RIGHTARG = cube, PROCEDURE = color_distance_cie1994,
-    COMMUTATOR = '<@>'
-);
 
 CREATE FUNCTION color_distance_cie2000(cube, cube)
 RETURNS float8
-AS 'MODULE_PATHNAME'
+AS 'colors', 'color_distance_cie2000'
 LANGUAGE C IMMUTABLE STRICT;
 
 CREATE OPERATOR <~> (
@@ -111,10 +100,9 @@ CREATE OPERATOR CLASS gist_color_ops
     OPERATOR    13  @ ,
     OPERATOR    14  ~ ,
     OPERATOR    15  <-> (cube, cube) FOR ORDER BY float_ops,
-    OPERATOR    16  <@> (cube, cube) FOR ORDER BY float_ops,
-    OPERATOR    17  <~> (cube, cube) FOR ORDER BY float_ops,
+    OPERATOR    16  <~> (cube, cube) FOR ORDER BY float_ops,
 
-    FUNCTION    1   g_cube_consistent (internal, cube, smallint, oid, internal),
+    FUNCTION    1   g_cube_consistent (internal, cube, integer, oid, internal),
     FUNCTION    2   g_cube_union (internal, internal),
     FUNCTION    3   g_cube_compress (internal),
     FUNCTION    4   g_cube_decompress (internal),

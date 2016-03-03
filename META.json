@@ -2,7 +2,7 @@
    "name": "colors",
    "abstract": "Colors for PostgreSQL",
    "description": "Provides Delta E CIE 1976 and Delta E CIE 2000 functions.",
-   "version": "0.0.1",
+   "version": "1.0",
    "maintainer": [
       "Gasper Zejn <zejn@owca.info>"
    ],
@@ -12,13 +12,13 @@
          "abstract": "Colors for PostgreSQL",
          "file": "sql/colors.sql",
          "docfile": "doc/colors.mmd",
-         "version": "0.0.1"
+         "version": "1.0"
       }
    },
    "prereqs": {
       "runtime": {
          "requires": {
-            "PostgreSQL": "8.4.0"
+            "PostgreSQL": "9.5.0"
          }
       },
       "test": {

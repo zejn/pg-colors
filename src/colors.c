@@ -26,8 +26,7 @@ PG_MODULE_MAGIC;
 
 /* KNN strategies */
 #define ColorKNNDistanceCIE1976         15      /* <-> */
-#define ColorKNNDistanceCIE1994         16      /* <@> */
-#define ColorKNNDistanceCIE2000         17      /* <~> */
+#define ColorKNNDistanceCIE2000         16      /* <~> */
 
 /* color distance */
 Datum       delta_e_cie_1976(PG_FUNCTION_ARGS);
@@ -40,7 +39,6 @@ Datum       g_color_distance(PG_FUNCTION_ARGS);
 
 /* parameters are (cube, cube) */
 Datum       color_distance_cie1976(PG_FUNCTION_ARGS);
-Datum       color_distance_cie1994(PG_FUNCTION_ARGS);
 Datum       color_distance_cie2000(PG_FUNCTION_ARGS);
 
 /* internal function prototypes */
@@ -50,7 +48,6 @@ float8 colors_delta_e_cmc(float8 l1, float8 a1, float8 b1, float8 l2, float8 a2,
 float8 colors_delta_e_cie_2000(float8 l1, float8 a1, float8 b1, float8 l2, float8 a2, float8 b2, float8 Kl, float8 Kc, float8 Kh);
 float8 color_cube_distance(NDBOX *query, NDBOX *color, uint16 strategy);
 bool cube_contains_v0(NDBOX *a, NDBOX *b);
-
 
 
 /* input function: 6 double precision */
@@ -434,17 +431,6 @@ Datum color_distance_cie1976(PG_FUNCTION_ARGS)
     PG_RETURN_FLOAT8(retval);
 }
 
-PG_FUNCTION_INFO_V1(color_distance_cie1994);
-Datum color_distance_cie1994(PG_FUNCTION_ARGS)
-{
-    NDBOX      *query = PG_GETARG_NDBOX(0);
-    NDBOX      *color = PG_GETARG_NDBOX(1);
-    float8      retval = DBL_MAX; // too big to fail
-
-    retval = color_cube_distance(query, color, ColorKNNDistanceCIE1994);
-    PG_RETURN_FLOAT8(retval);
-}
-
 float8 color_cube_distance(NDBOX *query, NDBOX *color, uint16 strategy)
 {
     float8      pt[3];
@@ -488,12 +474,6 @@ float8 color_cube_distance(NDBOX *query, NDBOX *color, uint16 strategy)
                     LL_COORD(color, 0), LL_COORD(color, 1), LL_COORD(color, 2),
                     LL_COORD(query, 0), LL_COORD(query, 1), LL_COORD(query, 2),
                     1.0, 1.0, 1.0);
-                break;
-            case ColorKNNDistanceCIE1994:
-                retval = colors_delta_e_cie_1994(
-                    LL_COORD(color, 0), LL_COORD(color, 1), LL_COORD(color, 2),
-                    LL_COORD(query, 0), LL_COORD(query, 1), LL_COORD(query, 2),
-                    1.0, 1.0, 1.0, 0.045, 0.015);
                 break;
             default:
                 elog(ERROR, "unrecognized color strategy number: %d", strategy);
@@ -546,12 +526,6 @@ float8 color_cube_distance(NDBOX *query, NDBOX *color, uint16 strategy)
                         pt[0], pt[1], pt[2],
                         LL_COORD(point, 0), LL_COORD(point, 1), LL_COORD(point, 2),
                         1.0, 1.0, 1.0);
-                    break;
-                case ColorKNNDistanceCIE1994:
-                    retval = colors_delta_e_cie_1994(
-                        pt[0], pt[1], pt[2],
-                        LL_COORD(point, 0), LL_COORD(point, 1), LL_COORD(point, 2),
-                        1.0, 1.0, 1.0, 0.045, 0.015);
                     break;
                 default:
                     elog(ERROR, "unrecognized color strategy number: %d", strategy);
