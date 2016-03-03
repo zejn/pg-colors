@@ -10,10 +10,24 @@
 #include "postgres.h"
 #include <math.h>
 #include "utils/builtins.h"
+#include "access/gist.h"
+#include "access/stratnum.h"
+#include "cubedata.h"
+#include "fmgr.h"
+
+#include "colors.h"
 
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
+
+
+#define CUBE_IS_POINT(cube) (LL_COORD(cube, 0) == UR_COORD(cube, 0) && LL_COORD(cube, 1) == UR_COORD(cube, 1) && LL_COORD(cube, 2) == UR_COORD(cube, 2))
+
+/* KNN strategies */
+#define ColorKNNDistanceCIE1976         15      /* <-> */
+#define ColorKNNDistanceCIE1994         16      /* <@> */
+#define ColorKNNDistanceCIE2000         17      /* <~> */
 
 /* color distance */
 Datum       delta_e_cie_1976(PG_FUNCTION_ARGS);
@@ -21,11 +35,22 @@ Datum       delta_e_cie_1994(PG_FUNCTION_ARGS);
 Datum       delta_e_cmc(PG_FUNCTION_ARGS);
 Datum       delta_e_cie_2000(PG_FUNCTION_ARGS);
 
-/* function prototypes */
+/* GiST support function for distance */
+Datum       g_color_distance(PG_FUNCTION_ARGS);
+
+/* parameters are (cube, cube) */
+Datum       color_distance_cie1976(PG_FUNCTION_ARGS);
+Datum       color_distance_cie1994(PG_FUNCTION_ARGS);
+Datum       color_distance_cie2000(PG_FUNCTION_ARGS);
+
+/* internal function prototypes */
 float8 colors_delta_e_cie_1976(float8 l1, float8 a1, float8 b1, float8 l2, float8 a2, float8 b2);
 float8 colors_delta_e_cie_1994(float8 l1, float8 a1, float8 b1, float8 l2, float8 a2, float8 b2, float8 K_L, float8 K_C, float8 K_H, float8 K_1, float8 K_2);
 float8 colors_delta_e_cmc(float8 l1, float8 a1, float8 b1, float8 l2, float8 a2, float8 b2, float8 pl, float8 pc);
 float8 colors_delta_e_cie_2000(float8 l1, float8 a1, float8 b1, float8 l2, float8 a2, float8 b2, float8 Kl, float8 Kc, float8 Kh);
+float8 color_cube_distance(NDBOX *query, NDBOX *color, uint16 strategy);
+bool cube_contains_v0(NDBOX *a, NDBOX *b);
+
 
 
 /* input function: 6 double precision */
@@ -344,4 +369,238 @@ float8 colors_delta_e_cie_2000(float8 l1, float8 a1, float8 b1, float8 l2, float
         pow(delta_Cp / (S_C * Kc), 2) +
         pow(delta_Hp / (S_H * Kh), 2) +
         R_T * (delta_Cp / (S_C * Kc)) * (delta_Hp / (S_H * Kh)));
+}
+
+static double
+distance_1D(double a1, double a2, double b1, double b2)
+{
+    double tmp;
+    if (a1 > a2) {
+        tmp = a1; a1 = a2; a2 = tmp;
+    }
+    if (b1 > b2) {
+        tmp = b1; b1 = b2; b2 = tmp;
+    }
+
+    /* interval (a) is entirely on the left of (b) */
+    if ((a1 <= b1) && (a2 <= b1) && (a1 <= b2) && (a2 <= b2))
+        return (Min(b1, b2) - Max(a1, a2));
+
+    /* interval (a) is entirely on the right of (b) */
+    if ((a1 > b1) && (a2 > b1) && (a1 > b2) && (a2 > b2))
+        return (Max(b1, b2) - Min(a1, a2));
+
+    /* the rest are all sorts of intersections */
+    return (0.0);
+}
+
+PG_FUNCTION_INFO_V1(g_color_distance);
+Datum g_color_distance(PG_FUNCTION_ARGS)
+{
+    GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
+    NDBOX      *query = PG_GETARG_NDBOX(1);
+    StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
+    NDBOX      *color = DatumGetNDBOX(entry->key);
+    bool       *recheck = (bool *) PG_GETARG_POINTER(4);
+    double      retval;
+
+    *recheck = false;
+
+    retval = color_cube_distance(query, color, strategy);
+    
+    PG_RETURN_FLOAT8(retval);
+}
+
+PG_FUNCTION_INFO_V1(color_distance_cie2000);
+Datum color_distance_cie2000(PG_FUNCTION_ARGS)
+{
+    NDBOX      *query = PG_GETARG_NDBOX(0);
+    NDBOX      *color = PG_GETARG_NDBOX(1);
+
+    double      retval;
+
+    retval = color_cube_distance(query, color, ColorKNNDistanceCIE2000);
+    PG_RETURN_FLOAT8(retval);
+}
+
+PG_FUNCTION_INFO_V1(color_distance_cie1976);
+Datum color_distance_cie1976(PG_FUNCTION_ARGS)
+{
+    NDBOX      *query = PG_GETARG_NDBOX(0);
+    NDBOX      *color = PG_GETARG_NDBOX(1);
+    float8      retval = DBL_MAX; // too big to fail
+
+    retval = color_cube_distance(query, color, ColorKNNDistanceCIE1976);
+    PG_RETURN_FLOAT8(retval);
+}
+
+PG_FUNCTION_INFO_V1(color_distance_cie1994);
+Datum color_distance_cie1994(PG_FUNCTION_ARGS)
+{
+    NDBOX      *query = PG_GETARG_NDBOX(0);
+    NDBOX      *color = PG_GETARG_NDBOX(1);
+    float8      retval = DBL_MAX; // too big to fail
+
+    retval = color_cube_distance(query, color, ColorKNNDistanceCIE1994);
+    PG_RETURN_FLOAT8(retval);
+}
+
+float8 color_cube_distance(NDBOX *query, NDBOX *color, uint16 strategy)
+{
+    float8      pt[3];
+    float8      retval = DBL_MAX; // too big to fail
+    bool        zero;
+
+    if (DIM(color) != 3)
+        ereport(ERROR,
+                (errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
+                 errmsg("color should have 3 dimensions, has %d", DIM(color))));
+    if (DIM(query) != 3)
+        ereport(ERROR,
+                (errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
+                 errmsg("query should have 3 dimensions, has %d", DIM(query))));
+    if (!IS_POINT(query)) 
+        ereport(ERROR,
+                (errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
+                 errmsg("query should be a point")));
+
+    /*
+     * TODO: first check if point, then do 
+     *  point - point = colors_delta_e_cie_2000
+     *  point - cube = if cube contains point then 0 else check distance from closest point by euclidean distance
+     *  cube - cube = decided that distance is not defined
+     * 
+     */
+
+    // check if points
+    if (CUBE_IS_POINT(color) && CUBE_IS_POINT(query)) {
+        // both are points
+        switch (strategy) 
+        {
+            case ColorKNNDistanceCIE1976:
+                retval = colors_delta_e_cie_1976(
+                    LL_COORD(color, 0), LL_COORD(color, 1), LL_COORD(color, 2),
+                    LL_COORD(query, 0), LL_COORD(query, 1), LL_COORD(query, 2)
+                    );
+                break;
+            case ColorKNNDistanceCIE2000:
+                retval = colors_delta_e_cie_2000(
+                    LL_COORD(color, 0), LL_COORD(color, 1), LL_COORD(color, 2),
+                    LL_COORD(query, 0), LL_COORD(query, 1), LL_COORD(query, 2),
+                    1.0, 1.0, 1.0);
+                break;
+            case ColorKNNDistanceCIE1994:
+                retval = colors_delta_e_cie_1994(
+                    LL_COORD(color, 0), LL_COORD(color, 1), LL_COORD(color, 2),
+                    LL_COORD(query, 0), LL_COORD(query, 1), LL_COORD(query, 2),
+                    1.0, 1.0, 1.0, 0.045, 0.015);
+                break;
+            default:
+                elog(ERROR, "unrecognized color strategy number: %d", strategy);
+                retval = 0;     /* keep compiler quiet */
+                break;
+        }
+
+    } else if (!CUBE_IS_POINT(color) && !CUBE_IS_POINT(query)) {
+        // when both are cubes
+        // the distance measure is not defined, because it is not position invariant
+        ereport(ERROR, 
+            (errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
+             errmsg("delta E is not defined for two cubes")));
+    } else {
+        // when one is cube, other is point
+        NDBOX       *cube;
+        NDBOX       *point;
+        if (CUBE_IS_POINT(color) && !CUBE_IS_POINT(query)) {
+            cube = query;
+            point = color;
+        } else if (!CUBE_IS_POINT(color) && CUBE_IS_POINT(query)) {
+            cube = color;
+            point = query;
+        } else {
+            ereport(ERROR, 
+                (errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
+                 errmsg("both cubes or both points? cant be!")));
+        }
+
+        zero = cube_contains_v0(cube, point);
+        if (zero) {
+            retval = 0.0;
+        } else {
+
+            // find the nearest point by eucliedan distance
+            pt[0] = LL_COORD(point, 0) - distance_1D(LL_COORD(point, 0), UR_COORD(point, 0), LL_COORD(cube, 0), UR_COORD(cube, 0));
+            pt[1] = LL_COORD(point, 1) - distance_1D(LL_COORD(point, 1), UR_COORD(point, 1), LL_COORD(cube, 1), UR_COORD(cube, 1));
+            pt[2] = LL_COORD(point, 2) - distance_1D(LL_COORD(point, 2), UR_COORD(point, 2), LL_COORD(cube, 2), UR_COORD(cube, 2));
+            
+            switch (strategy) 
+            {
+                case ColorKNNDistanceCIE1976:
+                    retval = colors_delta_e_cie_1976(
+                        pt[0], pt[1], pt[2],
+                        LL_COORD(point, 0), LL_COORD(point, 1), LL_COORD(point, 2)
+                        );
+                    break;
+                case ColorKNNDistanceCIE2000:
+                    retval = colors_delta_e_cie_2000(
+                        pt[0], pt[1], pt[2],
+                        LL_COORD(point, 0), LL_COORD(point, 1), LL_COORD(point, 2),
+                        1.0, 1.0, 1.0);
+                    break;
+                case ColorKNNDistanceCIE1994:
+                    retval = colors_delta_e_cie_1994(
+                        pt[0], pt[1], pt[2],
+                        LL_COORD(point, 0), LL_COORD(point, 1), LL_COORD(point, 2),
+                        1.0, 1.0, 1.0, 0.045, 0.015);
+                    break;
+                default:
+                    elog(ERROR, "unrecognized color strategy number: %d", strategy);
+                    retval = 0;     /* keep compiler quiet */
+                    break;
+            }
+        }
+    }
+
+    return retval;
+}
+
+/* COPIED from contrib/cube/cube.c */
+/* Contains */
+/* Box(A) CONTAINS Box(B) IFF pt(A) < pt(B) */
+bool
+cube_contains_v0(NDBOX *a, NDBOX *b)
+{
+    int         i;
+
+    if ((a == NULL) || (b == NULL))
+        return (FALSE);
+
+    if (DIM(a) < DIM(b))
+    {
+        /*
+         * the further comparisons will make sense if the excess dimensions of
+         * (b) were zeroes Since both UL and UR coordinates must be zero, we
+         * can check them all without worrying about which is which.
+         */
+        for (i = DIM(a); i < DIM(b); i++)
+        {
+            if (LL_COORD(b, i) != 0)
+                return (FALSE);
+            if (UR_COORD(b, i) != 0)
+                return (FALSE);
+        }
+    }
+
+    /* Can't care less about the excess dimensions of (a), if any */
+    for (i = 0; i < Min(DIM(a), DIM(b)); i++)
+    {
+        if (Min(LL_COORD(a, i), UR_COORD(a, i)) >
+            Min(LL_COORD(b, i), UR_COORD(b, i)))
+            return (FALSE);
+        if (Max(LL_COORD(a, i), UR_COORD(a, i)) <
+            Max(LL_COORD(b, i), UR_COORD(b, i)))
+            return (FALSE);
+    }
+
+    return (TRUE);
 }
