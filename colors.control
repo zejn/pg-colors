@@ -3,3 +3,4 @@ comment = 'Colors for Postgres'
 default_version = '1.0'
 module_pathname = '$libdir/colors'
 relocatable = true
+requires = 'cube'
